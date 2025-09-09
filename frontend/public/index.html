@@ -4,31 +4,109 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistema POS</title>
+    <style>
+        body { font-family: sans-serif; display: flex; gap: 40px; padding: 20px; }
+        .panel { border: 1px solid #ccc; border-radius: 8px; padding: 20px; width: 400px; }
+        h1, h2, h3 { margin-top: 0; }
+        ul { list-style-type: none; padding: 0; }
+        li { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }
+        button { cursor: pointer; }
+        #cart-total { font-weight: bold; margin-top: 10px; text-align: right; }
+        form { display: flex; flex-direction: column; gap: 10px; }
+        input { padding: 8px; }
+    </style>
 </head>
 <body>
-    <h1>Bienvenido al Sistema POS</h1>
-    <h2>Lista de Productos</h2>
-    <ul id="product-list">
-        </ul>
+
+    <div class="panel">
+        <h2>Productos</h2>
+        <ul id="product-list"></ul>
+    </div>
+
+    <div class="panel">
+        <h2>Carrito</h2>
+        <ul id="cart-list"></ul>
+        <h3 id="cart-total">Total: $0.00</h3>
+    </div>
+
+    <div class="panel">
+        <h2>Agregar Nuevo Producto</h2>
+        <form id="add-product-form">
+            <input type="text" id="product-name" placeholder="Nombre del producto" required>
+            <input type="number" id="product-price" placeholder="Precio" step="0.01" required>
+            <button type="submit">Agregar Producto</button>
+        </form>
+    </div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const productList = document.getElementById('product-list');
+        const API_URL = 'http://localhost:5000/api/products';
+        const productList = document.getElementById('product-list');
+        const addProductForm = document.getElementById('add-product-form');
+        const cartList = document.getElementById('cart-list');
+        const cartTotal = document.getElementById('cart-total');
 
-            fetch('http://localhost:5000/api/products')
-                .then(response => response.json())
-                .then(products => {
-                    products.forEach(product => {
-                        const listItem = document.createElement('li');
-                        listItem.textContent = `${product.name} - $${product.price}`;
-                        productList.appendChild(listItem);
-                    });
-                })
-                .catch(error => {
-                    console.error('Error al cargar los productos:', error);
-                    productList.innerHTML = '<li>Error al cargar productos. Servidor corriendo?</li>';
-                });
+        let cart = [];
+
+        // Cargar y mostrar productos
+        async function fetchProducts() {
+            const response = await fetch(API_URL);
+            const products = await response.json();
+            productList.innerHTML = ''; 
+            products.forEach(product => {
+                const li = document.createElement('li');
+                li.innerHTML = `
+                    <span>${product.name} - $${product.price.toFixed(2)}</span>
+                    <button onclick="addToCart(${product.id}, '${product.name}', ${product.price})">Agregar</button>
+                `;
+                productList.appendChild(li);
+            });
+        }
+
+        // Logica del carrito
+        function addToCart(id, name, price) {
+            const existingItem = cart.find(item => item.id === id);
+            if (existingItem) {
+                existingItem.quantity++;
+            } else {
+                cart.push({ id, name, price, quantity: 1 });
+            }
+            renderCart();
+        }
+
+        function renderCart() {
+            cartList.innerHTML = '';
+            let total = 0;
+            cart.forEach(item => {
+                const li = document.createElement('li');
+                li.textContent = `${item.name} (x${item.quantity}) - $${(item.price * item.quantity).toFixed(2)}`;
+                cartList.appendChild(li);
+                total += item.price * item.quantity;
+            });
+            cartTotal.textContent = `Total: $${total.toFixed(2)}`;
+        }
+
+        // nuevo productp
+        addProductForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const name = document.getElementById('product-name').value;
+            const price = parseFloat(document.getElementById('product-price').value);
+
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, price })
+            });
+
+            if (response.ok) {
+                fetchProducts(); // Recargar lista de productos
+                addProductForm.reset();
+            } else {
+                alert('Error al agregar el producto.');
+            }
         });
+
+        // Carga inicial
+        fetchProducts();
     </script>
 </body>
 </html>
