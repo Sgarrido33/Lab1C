@@ -6,7 +6,29 @@
     <title>Sistema POS</title>
 </head>
 <body>
-    <h1>Sistema POS</h1>
-    <p>El frontend está funcionando.</p>
+    <h1>Bienvenido al Sistema POS</h1>
+    <h2>Lista de Productos</h2>
+    <ul id="product-list">
+        </ul>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const productList = document.getElementById('product-list');
+
+            fetch('http://localhost:5000/api/products')
+                .then(response => response.json())
+                .then(products => {
+                    products.forEach(product => {
+                        const listItem = document.createElement('li');
+                        listItem.textContent = `${product.name} - $${product.price}`;
+                        productList.appendChild(listItem);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error al cargar los productos:', error);
+                    productList.innerHTML = '<li>Error al cargar productos. Servidor corriendo?</li>';
+                });
+        });
+    </script>
 </body>
 </html>
