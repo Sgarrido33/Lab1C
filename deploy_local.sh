@@ -62,6 +62,8 @@ if [ ! -d "node_modules" ]; then
 else
     echo "Dependencias de Node.js ya instaladas."
 fi
+# Prepara el proyecto para deployment
+npm run build
 cd ..
 
 echo "Frontend configurado"
@@ -83,4 +85,4 @@ sleep 3
 echo "Iniciando servidor frontend"
 echo "Aplicacion disponible en http://localhost:3000"
 echo "Presiona Ctrl + C en esta ventana para cerrar"
-(cd frontend && node server.js)
+(cd frontend && serve -s dist -l 3000)
