@@ -2,21 +2,22 @@ import { useState, useEffect } from 'react';
 import './App.css';
 import ConfirmationModal from './ConfirmationModal'; 
 import './Modal.css';
+import AlertModal from './AlertModal';
 
 const API_URL_PRODUCTS = 'http://localhost:5000/api/products';
 const API_URL_SALES = 'http://localhost:5000/api/sales';
+const EPSILON = 0.01;
 
 function App() {
   const [products, setProducts] = useState([]);
   const [cart, setCart] = useState([]);
   const [sales, setSales] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [paymentAmount, setPaymentAmount] = useState('');
 
-  const [modalState, setModalState] = useState({
-    isOpen: false,
-    message: '',
-    onConfirm: () => {},
-  });
+  const [modalState, setModalState] = useState({ isOpen: false });
+  const [alertState, setAlertState] = useState({ isOpen: false, message: '' });
+
   
   // Carga inicial de productos e historial de ventas
   useEffect(() => {
@@ -56,28 +57,85 @@ function App() {
     });
   }
 
-  async function handleCheckout() {
-    if (cart.length === 0) return;
-    setModalState({
-      isOpen: true,
-      message: '¿Quieres finalizar y registrar esta venta?',
-      onConfirm: async () => {
-        const response = await fetch(API_URL_SALES, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(cart),
-        });
-        if (response.ok) {
-          setCart([]);
-          fetchSales();
-        }
-        setModalState({ isOpen: false }); 
-      },
+  function handleConfirmCheckout(totalSale) {
+  return async () => {
+    const paid = parseFloat(paymentAmount);
+
+    console.log("Pago ingresado:", paymentAmount, "parseado:", paid, "total:", totalSale);
+
+    if (isNaN(paid) || paid + EPSILON < totalSale) {
+      setModalState({ isOpen: false });
+      setAlertState({ isOpen: true, message: 'El monto pagado es inválido o insuficiente.' });
+      return;
+    }
+
+    const change = paid - totalSale;
+    setModalState({ isOpen: false });
+
+    const response = await fetch(API_URL_SALES, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(cart),
     });
-  }
+
+    if (response.ok) {
+      setAlertState({
+        isOpen: true,
+        message: `Venta registrada con éxito. Cambio a dar: $${change.toFixed(2)}`
+      });
+      setCart([]);
+      fetchSales();
+      setPaymentAmount(''); 
+    } else {
+      setAlertState({ isOpen: true, message: 'Hubo un error al registrar la venta.' });
+    }
+  };
+}
+
+async function handleCheckout() {
+  if (cart.length === 0) return;
+  const totalSale = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
+  setModalState({
+    isOpen: true,
+    message: `Total de la venta: $${totalSale.toFixed(2)}. Ingrese el monto pagado.`,
+    showPaymentInput: true,
+    onConfirm: async (value) => {   
+      const paid = parseFloat(value);
+
+      console.log("Pago ingresado:", value, "parseado:", paid, "total:", totalSale);
+
+      if (isNaN(paid) || paid + EPSILON < totalSale) {
+        setModalState({ isOpen: false });
+        setAlertState({ isOpen: true, message: 'El monto pagado es inválido o insuficiente.' });
+        return;
+      }
+
+      const change = paid - totalSale;
+      setModalState({ isOpen: false });
+
+      const response = await fetch(API_URL_SALES, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(cart),
+      });
+
+      if (response.ok) {
+        setAlertState({ isOpen: true, message: `Venta registrada con éxito. Cambio a dar: $${change.toFixed(2)}` });
+        setCart([]);
+        fetchSales();
+        setPaymentAmount(''); 
+      } else {
+        setAlertState({ isOpen: true, message: 'Hubo un error al registrar la venta.' });
+      }
+    }
+  });
+}
+
+
 
   // --- Lógica del Carrito ---
-  function addToCart(product) { // <-- También se usa para incrementar
+  function addToCart(product) { 
     setCart(currentCart => {
       const existing = currentCart.find(item => item.id === product.id);
       if (existing) {
@@ -106,42 +164,52 @@ function App() {
   }
 
   const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-
   const filteredProducts = products.filter(product =>
     product.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
-
-    return (
-      <>
-        <main className="container">
-          <div>
-            <ProductsPanel
-              products={filteredProducts}
-              onAddToCart={addToCart}
-              onDeleteProduct={handleDeleteProduct}
-              searchTerm={searchTerm}
-              onSearchChange={setSearchTerm}
-            />
-            <AddProductPanel onProductAdded={handleAddProduct} />
-          </div>
-          {/* Columna Derecha */}
-          <div>
-            <CartPanel
-              cart={cart}
-              total={total}
-              onCheckout={handleCheckout}
-              onIncrease={addToCart}
-              onDecrease={decreaseFromCart}
-              onRemove={removeFromCart}
-            />
-            <SalesHistoryPanel sales={sales} />
-          </div>
-        </main>
-        <ConfirmationModal
+console.log("Estado paymentAmount en App.jsx:", paymentAmount);
+  return (
+    <>
+      <main className="container">
+        <div>
+          <ProductsPanel
+            products={filteredProducts}
+            onAddToCart={addToCart}
+            onDeleteProduct={handleDeleteProduct}
+            searchTerm={searchTerm}
+            onSearchChange={setSearchTerm}
+          />
+          <AddProductPanel onProductAdded={handleAddProduct} />
+        </div>
+        <div>
+          <CartPanel
+            cart={cart}
+            total={total}
+            onCheckout={handleCheckout}
+            onIncrease={addToCart}
+            onDecrease={decreaseFromCart}
+            onRemove={removeFromCart}
+          />
+          <SalesHistoryPanel sales={sales} />
+        </div>
+      </main>
+      
+      <ConfirmationModal
         isOpen={modalState.isOpen}
         message={modalState.message}
-        onConfirm={modalState.onConfirm}
-        onCancel={() => setModalState({ isOpen: false })}
+        onConfirm={modalState.onConfirm}   // 👈 ya recibe el valor actual
+        onCancel={() => {
+            setModalState({ isOpen: false });
+        }}
+        showPaymentInput={modalState.showPaymentInput}
+        paymentAmount={paymentAmount}
+        onPaymentChange={value => setPaymentAmount(value)}
+      />
+      
+      <AlertModal
+        isOpen={alertState.isOpen}
+        message={alertState.message}
+        onClose={() => setAlertState({ isOpen: false, message: '' })}
       />
     </>
   );
