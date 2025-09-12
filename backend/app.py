@@ -2,7 +2,10 @@ import os
 from flask import Flask, jsonify, request
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
-from datetime import datetime
+from datetime import datetime, timedelta
+from werkzeug.security import generate_password_hash, check_password_hash
+import jwt
+from functools import wraps
 
 app = Flask(__name__)
 CORS(app)
@@ -11,15 +14,30 @@ CORS(app)
 basedir = os.path.abspath(os.path.dirname(__file__))
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'pos.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SECRET_KEY'] = 'hola'
 
 db = SQLAlchemy(app)
 
 # --- Modelos de la Base de Datos ---
 
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    password_hash = db.Column(db.String(128), nullable=False)
+    products = db.relationship('Product', backref='owner', lazy=True)
+    sales = db.relationship('Sale', backref='owner', lazy=True)
+
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
+
 class Product(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     price = db.Column(db.Float, nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
 
     def to_dict(self):
         return {"id": self.id, "name": self.name, "price": self.price}
@@ -29,6 +47,7 @@ class Sale(db.Model):
     total = db.Column(db.Float, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     items = db.relationship('SaleItem', backref='sale', lazy=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
 
     def to_dict(self):
         return {
@@ -52,24 +71,73 @@ class SaleItem(db.Model):
             "price": self.price
         }
 
+# --- Decorador de Autenticacion ---
+def token_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = None
+        if 'Authorization' in request.headers:
+            token = request.headers['Authorization'].split(" ")[1]
+        if not token:
+            return jsonify({'message': 'Token faltante'}), 401
+        try:
+            data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=["HS256"])
+            current_user = User.query.get(data['user_id'])
+        except:
+            return jsonify({'message': 'Token invalido'}), 401
+        return f(current_user, *args, **kwargs)
+    return decorated
+
+# --- Rutas de Autenticacion ---
+
+@app.route('/api/register', methods=['POST'])
+def register():
+    data = request.get_json()
+    if User.query.filter_by(username=data['username']).first():
+        return jsonify({'message': 'Usuario ya existe'}), 409
+    
+    new_user = User(username=data['username'])
+    new_user.set_password(data['password'])
+    db.session.add(new_user)
+    db.session.commit()
+    return jsonify({'message': 'Usuario registrado exitosamente'}), 201
+
+@app.route('/api/login', methods=['POST'])
+def login():
+    data = request.get_json()
+    user = User.query.filter_by(username=data['username']).first()
+    if not user or not user.check_password(data['password']):
+        return jsonify({'message': 'Credenciales Invalidas'}), 401
+    
+    token = jwt.encode({
+        'user_id': user.id,
+        'exp': datetime.utcnow() + timedelta(hours=24)
+    }, app.config['SECRET_KEY'], algorithm="HS256")
+    
+    return jsonify({'token': token})
+
 # --- Endpoints de la API para Productos ---
 
 @app.route("/api/products", methods=['GET'])
-def get_products():
-    products = Product.query.all()
+@token_required
+def get_products(current_user):
+    products = Product.query.filter_by(user_id=current_user.id).all()
     return jsonify([product.to_dict() for product in products])
 
 @app.route("/api/products", methods=['POST'])
-def add_product():
+@token_required
+def add_product(current_user):
     data = request.get_json()
-    new_product = Product(name=data['name'], price=data['price'])
+    new_product = Product(name=data['name'], price=data['price'], user_id=current_user.id)
     db.session.add(new_product)
     db.session.commit()
     return jsonify(new_product.to_dict()), 201
 
 @app.route("/api/products/<int:id>", methods=['DELETE'])
-def delete_product(id):
-    product = Product.query.get_or_404(id)
+@token_required
+def delete_product(current_user, id):
+    # Asegurarse de que el producto pertenece al usuario actual antes de borrarlo
+    product = Product.query.filter_by(id=id, user_id=current_user.id).first_or_404()
     db.session.delete(product)
     db.session.commit()
     return jsonify({'message': 'Product deleted'}), 200
@@ -77,16 +145,20 @@ def delete_product(id):
 # --- Endpoints de la API para Ventas ---
 
 @app.route("/api/sales", methods=['POST'])
-def create_sale():
+@token_required
+def create_sale(current_user):
     cart_items = request.get_json()
     if not cart_items:
         return jsonify({'error': 'Cart is empty'}), 400
 
     total = sum(item['price'] * item['quantity'] for item in cart_items)
     
-    new_sale = Sale(total=total)
+    new_sale = Sale(
+        total=total,
+        user_id=current_user.id
+    )
     db.session.add(new_sale)
-    db.session.flush()  # Asigna un ID a new_sale antes del commit
+    db.session.flush()  
 
     for item in cart_items:
         sale_item = SaleItem(
@@ -101,11 +173,12 @@ def create_sale():
     return jsonify(new_sale.to_dict()), 201
 
 @app.route("/api/sales", methods=['GET'])
-def get_sales():
-    sales = Sale.query.order_by(Sale.created_at.desc()).all()
+@token_required
+def get_sales(current_user):
+    sales = Sale.query.filter_by(user_id=current_user.id).order_by(Sale.created_at.desc()).all()
     return jsonify([sale.to_dict() for sale in sales])
 
-# Crear la base de datos si no existe
+
 with app.app_context():
     db.create_all()
 
