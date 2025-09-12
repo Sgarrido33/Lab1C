@@ -1,5 +1,19 @@
 #!/bin/bash
 
+REPO_URL="https://github.com/Sgarrido33/Lab1C.git"
+REPO_DIR="Lab1C" # Nombre de la carpeta que creara git clone
+
+# Logica de lonacion
+if [ ! -d "$REPO_DIR" ]; then
+    echo "Repositorio no encontrado. Clonando desde $REPO_URL..."
+    git clone "$REPO_URL"
+else
+    echo "Repositorio '$REPO_DIR' ya existe."
+fi
+
+# Los comando se ejecutan dentro del repo
+cd "$REPO_DIR"
+
 # El comando existe?
 command_exists() {
     command -v "$1" >/dev/null 2>&1
