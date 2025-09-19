@@ -50,3 +50,18 @@ El proyecto está diseñado para ser desplegado con un **único comando**. El sc
     ```
 
 El script clonará el repositorio, configurará los entornos, instalará todas las dependencias y levantará ambos servidores. La aplicación estará disponible en  `http://localhost:3000`.
+
+---
+
+## Pruebas Automatizadas
+
+El proyecto incluye un conjunto de pruebas unitarias para el backend y el frontend. Se ha creado un script para ejecutar todas las pruebas de forma automática.
+
+1.  Asegúrate de estar en la raíz del proyecto.
+2.  Ejecuta el script de pruebas:
+
+    ```bash
+    ./run_tests.sh
+    ```
+
+El script navegará a cada directorio, activará los entornos correspondientes y ejecutará las pruebas con Pytest y Vitest.
