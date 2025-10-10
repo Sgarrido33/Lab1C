@@ -4,8 +4,8 @@ import ConfirmationModal from './ConfirmationModal';
 import './Modal.css';
 import AlertModal from './AlertModal';
 
-const API_URL_PRODUCTS = 'http://localhost:5000/api/products';
-const API_URL_SALES = 'http://localhost:5000/api/sales';
+const API_URL_PRODUCTS = 'http://localhost:8080/api/products';
+const API_URL_SALES = 'http://localhost:8080/api/sales';
 const EPSILON = 0.01;
 
 export function PosView({ token, onLogout }) {

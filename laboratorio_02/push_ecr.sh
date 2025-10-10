@@ -5,15 +5,15 @@ set -e
 
 # --- Variables de Configuración de AWS ---
 AWS_REGION="us-east-2"
-AWS_ACCOUNT_ID="183295430759"
-ECR_REPOSITORY_NAME="pos-flask-app"
+AWS_ACCOUNT_ID="664418991493"
+ECR_REPOSITORY_NAME="laboratorio_02"
 TAG="latest"
 
 # --- Variables Derivadas ---
-BUILD_CONTEXT="./backend"
-LOCAL_IMAGE_NAME="${ECR_REPOSITORY_NAME}:${TAG}" 
+BUILD_CONTEXT="./"
+LOCAL_IMAGE_NAME="${ECR_REPOSITORY_NAME}:${TAG}"
 ECR_REGISTRY="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
-ECR_IMAGE_NAME="${ECR_REGISTRY}/${ECR_REPOSITORY_NAME}:${TAG}" 
+ECR_IMAGE_NAME="${ECR_REGISTRY}/${ECR_REPOSITORY_NAME}:${TAG}"
 
 # --- Verificaciones Previas ---
 if ! command -v docker &> /dev/null || ! command -v aws &> /dev/null
@@ -22,8 +22,8 @@ then
     exit 1
 fi
 
-if [ ! -f "${BUILD_CONTEXT}/Dockerfile" ]; then
-    echo "Error: No se encontró un Dockerfile en la carpeta '${BUILD_CONTEXT}'."
+if [ ! -f "${BUILD_CONTEXT}/dockerfile" ]; then
+    echo "Error: No se encontró un dockerfile en la carpeta '${BUILD_CONTEXT}'."
     exit 1
 fi
 
@@ -40,7 +40,7 @@ echo "Autenticación exitosa."
 
 # --- 2. Construir la Imagen de Docker ---
 echo "Construyendo la imagen Docker local: ${LOCAL_IMAGE_NAME}"
-docker build -t "${LOCAL_IMAGE_NAME}" "${BUILD_CONTEXT}"
+docker build -t "${LOCAL_IMAGE_NAME}" -f "${BUILD_CONTEXT}/dockerfile" "${BUILD_CONTEXT}"
 echo "Construcción finalizada."
 
 # --- 3. Etiquetar la Imagen para ECR ---
@@ -49,7 +49,7 @@ docker tag "${LOCAL_IMAGE_NAME}" "${ECR_IMAGE_NAME}"
 echo "Etiquetado finalizado."
 
 # --- 4. Subir la Imagen a ECR ---
-echo "⬆Subiendo la imagen a AWS ECR..."
+echo "⬆ Subiendo la imagen a AWS ECR..."
 docker push "${ECR_IMAGE_NAME}"
 
 echo "-----------------------------------------"
