@@ -4,12 +4,12 @@
 set -e
 
 # --- Variables de Configuración ---
-DOCKERHUB_USERNAME="sgarrido3"
-IMAGE_NAME="pos-flask-app"
+DOCKERHUB_USERNAME="reaper025"
+IMAGE_NAME="laboratorio_02"
 TAG="latest"
 
 DOCKER_IMAGE_NAME="${DOCKERHUB_USERNAME}/${IMAGE_NAME}:${TAG}"
-BUILD_CONTEXT="./backend"
+BUILD_CONTEXT="./"
 
 # --- Verificaciones Previas ---
 if ! command -v docker &> /dev/null
@@ -18,8 +18,8 @@ then
     exit 1
 fi
 
-if [ ! -f "${BUILD_CONTEXT}/Dockerfile" ]; then
-    echo "Error: No se encontró un Dockerfile en la carpeta '${BUILD_CONTEXT}'."
+if [ ! -f "${BUILD_CONTEXT}/dockerfile" ]; then
+    echo "Error: No se encontró un dockerfile en la carpeta '${BUILD_CONTEXT}'."
     exit 1
 fi
 
@@ -29,15 +29,13 @@ echo "Iniciando el push a Docker Hub..."
 echo "Imagen a construir: ${DOCKER_IMAGE_NAME}"
 echo "-----------------------------------------"
 
-
 # --- 1. Construir la Imagen de Docker ---
 echo "Construyendo la imagen Docker desde '${BUILD_CONTEXT}'..."
-docker build -t "${DOCKER_IMAGE_NAME}" "${BUILD_CONTEXT}"
+docker build -t "${DOCKER_IMAGE_NAME}" -f "${BUILD_CONTEXT}/dockerfile" "${BUILD_CONTEXT}"
 echo "Construcción finalizada."
 
-
 # --- 2. Subir la Imagen a Docker Hub ---
-echo "⬆Subiendo la imagen a Docker Hub..."
+echo "⬆ Subiendo la imagen a Docker Hub..."
 docker push "${DOCKER_IMAGE_NAME}"
 
 echo "-----------------------------------------"

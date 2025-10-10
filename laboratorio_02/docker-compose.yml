@@ -1,0 +1,48 @@
+services:
+  web:
+    build: .
+    container_name: laboratorio_02
+    env_file:
+       - ./.env
+    depends_on:
+      - db
+    volumes:
+      - ./app:/app
+    expose:
+      - "5000"
+    networks:
+      - flask_network
+
+  db:
+    image: mysql:8.0
+    container_name: mysql_db
+    restart: always
+    environment:
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - flask_network
+
+  nginx:
+    image: nginx:latest
+    container_name: nginx_server
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - web
+    networks:
+      - flask_network
+
+volumes:
+  mysql_data:
+
+networks:
+  flask_network:
