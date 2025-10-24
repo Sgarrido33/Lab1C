@@ -2,9 +2,9 @@ name: Build and Push Docker Image
 
 on:
   push:
-    branches: [ proyecto_02 ]
+    branches: [ main ]
   pull_request:
-    branches: [ proyecto_02 ]
+    branches: [ main,develop ]
 
 env:
   AWS_REGION: us-east-2
