@@ -12,6 +12,7 @@ load_dotenv()
 app = Flask(__name__)
 CORS(app)
 
+# test for workflow
 # --- Configuración de la Base de Datos ---
 basedir = os.path.abspath(os.path.dirname(__file__))
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'pos.db')
