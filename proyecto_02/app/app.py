@@ -10,7 +10,7 @@ from functools import wraps
 from urllib.parse import quote_plus
 
 load_dotenv()
-
+#test
 app = Flask(__name__)
 CORS(app)
 
